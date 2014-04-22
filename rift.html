@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <script type="text/javascript">
+
+var hmd = null;
+var posdev = null;
+
+function log() {
+  var s = Array.slice(arguments).join(" ");
+  var d = document.getElementById("l");
+
+  d.appendChild(document.createTextNode(s));
+  d.appendChild(document.createElement("br"));
+}
+
+function hasDevs(vrdevs) {
+  log(vrdevs.length, " VR Devices");
+
+  for (var i = 0; i < vrdevs.length; ++i) {
+    var dev = vrdevs[i];
+
+    log("=========", i);
+    log(dev.id, ": ", dev.deviceType, " -- ", dev.deviceName);
+
+    if (!hmd && dev.deviceType == "hmd") {
+      hmd = dev;
+      info = hmd.info;
+
+      log(info.pixelWidth + "x" + info.pixelHeight, info.eyeSeparationDistance);
+
+      log(hmd.leftEye.toSource());
+    } else if (!posdev && dev.deviceType == "position") {
+      posdev = dev;
+    }
+  }
+
+  if (hmd && posdev) {
+    showPosition();
+  }
+}
+
+function showPosition() {
+  var fs = new Float32Array(19);
+  posdev.getState(0.0, fs);
+
+  var s = "";
+  for (var i = 0; i < 19; ++i) {
+    s += fs[i].toFixed(3);
+    s += " ";
+  }
+  log(s);
+
+  setTimeout(showPosition, 500);
+}
+
+function start() {
+  navigator.mozGetVRDevices(hasDevs);
+}
+
+window.addEventListener("load", start, false);
+    </script>
+  </head>
+  <body>
+    <div id="l"></div>
+  </body>
+</html>
