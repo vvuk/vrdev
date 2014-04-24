@@ -2,8 +2,82 @@
 
 <html>
   <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <script src="lib/jquery-2.1.0.js" type="text/javascript"></script>
     <script src="lib/three.js" type="text/javascript"></script>
+
+    <script id="distortion_vs" type="x-shader/x-vertex">
+uniform vec2 uEyeToSourceUVScale;
+uniform vec2 uEyeToSourceUVOffset;
+#ifdef TIMEWARP
+unfiorm mat4x4 uEyeRotationStart;
+unfiorm mat4x4 uEyeRotationEnd;
+#endif
+
+//attribute vec2 position; // this will be defined by three.js
+attribute vec4 aPackedData; /* vignette + timewarp factor, if any */
+attribute vec2 aTexCoordR;
+attribute vec2 aTexCoordG;
+attribute vec2 aTexCoordB;
+
+varying vec4 vColor;
+varying vec2 vTexCoordR;
+varying vec2 vTexCoordG;
+varying vec2 vTexCoordB;
+
+#ifdef TIMEWARP
+vec2 TimewarpTexCoordToWarpedPos(vec2 inTexCoord, mat4x4 rotMat)
+{
+     vec3 transformed = (rotMat * vec4(inTexCoord.xy, 1.0, 1.0)).xyz;
+     vec2 flattened = transformed.xy / transformed.z;
+     return flattened * uEyeToSourceUVScale + uEyeToSourceUVOffset;
+}
+
+#define TransformTexCoord(texCoord, arg0)  TimewarpTexCoordToWarpedPos(texCoord, arg0)
+#else
+vec2 ScaleTexCoord(vec2 inTexCoord)
+{
+     return inTexCoord * uEyeToSourceUVScale + uEyeToSourceUVOffset;
+}
+#define TransformTexCoord(texCoord, arg0)  ScaleTexCoord(texCoord)
+#endif
+
+void main()
+{
+     gl_Position = vec4(position.xy, 0.5, 1.0);
+
+#ifdef TIMEWARP
+     float timewarpLerpFactor = aPackedData.a;
+     mat4x4 lerpedEyeRot = lerp(uEyeRotationStart, uEyeRotationEnd, timewarpLerpFactor);
+#endif
+
+     // the second arg here will be #defined out if !TIMEWARP
+     vTexCoordR = TransformTexCoord(aTexCoordR, lerpedEyeRot);
+     vTexCoordG = TransformTexCoord(aTexCoordG, lerpedEyeRot);
+     vTexCoordB = TransformTexCoord(aTexCoordB, lerpedEyeRot);
+
+     vColor = vec4(aPackedData.rgb, 1.0);
+}
+    </script>
+
+    <script id="distortion_fs" type="x-shader/x-fragment">
+uniform sampler2D uTexture;
+
+varying vec4 vColor;
+varying vec2 vTexCoordR;
+varying vec2 vTexCoordG;
+varying vec2 vTexCoordB;
+
+void main()
+{
+     float rval = texture2D(uTexture, vTexCoordR).r;
+     float gval = texture2D(uTexture, vTexCoordG).g;
+     float bval = texture2D(uTexture, vTexCoordB).b;
+
+     gl_FragColor = vColor * vec4(rval, gval, bval, 1.0);
+     //gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+    </script>
 
     <script src="mock.js" type="text/javascript"></script>
     <script src="riftmesh.js" type="text/javascript"></script>
