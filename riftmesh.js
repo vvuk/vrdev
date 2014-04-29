@@ -225,7 +225,7 @@ function startRendering() {
     // the actual content scene
     g.mainScene = new THREE.Scene();
     g.mainScene.add(new THREE.AmbientLight(0x44aa44));
-    //g.mainScene.add(new THREE.Mesh(new THREE.TorusGeometry(10, 25, 15, 30), new THREE.MeshBasicMaterial({color: 0xff1111, wireframe: true})));
+    g.mainScene.add(new THREE.Mesh(new THREE.TorusGeometry(10, 25, 15, 30), new THREE.MeshBasicMaterial({color: 0xff1111, side: THREE.DoubleSide })));
     g.mainScene.add(new THREE.Mesh(new THREE.CubeGeometry(10, 10, 10), new THREE.MeshBasicMaterial({color: 0xff1111, wireframe: true})));
   }
 
@@ -239,11 +239,17 @@ function startRendering() {
   g.eyeCameras[0].translateZ(25);
   g.eyeCameras[1].translateZ(25);
 
+  var fv = new Float32Array(32);
+  var qrot = new THREE.Quaternion();
+
   function redraw() {
     requestAnimationFrame(redraw);
 
+    posdev.getState(0.0, fv);
+    qrot.set(fv[0], fv[1], fv[2], fv[3]);
+
     for (var eye = 0; eye < 2; eye++) {
-      //g.eyeCameras[eye].setRotationFromQuaternion(...);
+      g.eyeCameras[eye].setRotationFromQuaternion(qrot);
       g.r.setClearColor(eye ? 0xccccee : 0xeecccc);
       g.r.render(g.mainScene, g.eyeCameras[eye], g.renderTargets[eye], true);
     }
@@ -306,9 +312,21 @@ $(function() {
   logtext = $("#logtext")[0];
   logtext.textContent = "";
 
-  if (true) {
+  if (false) {
     navigator.mozGetVRDevices(hasDevs);
   } else {
+    mockPosition.t = performance.now();
+    mockPosition.getState = function(timeOffset, fvals) {
+      var q = new THREE.Quaternion();
+      var angVelocity = Math.PI / 5000.0;
+      var tdelta = performance.now() - mockPosition.t + timeOffset;
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), tdelta * angVelocity);
+
+      fvals[0] = q.x; fvals[1] = q.y; fvals[2] = q.z; fvals[3] = q.w;
+      for (var i = 4; i < 19; ++i) { fvals[i] = 0.0; }
+      return 19;
+    };
+
     hasDevs([mockHMD, mockPosition]);
   }
 });
